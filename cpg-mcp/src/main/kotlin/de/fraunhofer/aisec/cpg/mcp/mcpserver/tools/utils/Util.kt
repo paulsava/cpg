@@ -103,7 +103,7 @@ fun CallToolRequest.runOnCpg(
                     content =
                         listOf(
                             TextContent(
-                                "No analysis result available. Please analyze your code first using cpg_analyze."
+                                "No analysis result available. Please analyze your code first using analyze_code."
                             )
                         )
                 )

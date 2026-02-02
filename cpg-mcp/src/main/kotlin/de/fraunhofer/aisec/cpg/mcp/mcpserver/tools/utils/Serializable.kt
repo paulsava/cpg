@@ -214,12 +214,25 @@ data class FieldInfo(
 }
 
 @Serializable
+data class StatusInfo(
+    val hasAnalysis: Boolean,
+    val totalNodes: Int,
+    val functions: Int,
+    val records: Int,
+    val calls: Int,
+    val variables: Int,
+    val overlaysApplied: Int,
+    val passesRun: List<String>,
+)
+
+@Serializable
 data class CpgAnalysisResult(
     val totalNodes: Int,
     val functions: Int,
     val variables: Int,
     val callExpressions: Int,
-    val nodes: List<NodeInfo>,
+    val records: Int,
+    val topLevelDeclarations: List<String>,
 )
 
 @Serializable

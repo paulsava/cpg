@@ -25,22 +25,16 @@
  */
 package de.fraunhofer.aisec.cpg.mcp.mcpserver
 
-import de.fraunhofer.aisec.cpg.mcp.mcpserver.tools.addCpgAnalyzeTool
-import de.fraunhofer.aisec.cpg.mcp.mcpserver.tools.addCpgApplyConceptsTool
-import de.fraunhofer.aisec.cpg.mcp.mcpserver.tools.addCpgDataflowTool
-import de.fraunhofer.aisec.cpg.mcp.mcpserver.tools.addCpgLlmAnalyzeTool
-import de.fraunhofer.aisec.cpg.mcp.mcpserver.tools.addCpgTranslate
-import de.fraunhofer.aisec.cpg.mcp.mcpserver.tools.addListPasses
+import de.fraunhofer.aisec.cpg.mcp.mcpserver.prompts.addCpgPrompts
+import de.fraunhofer.aisec.cpg.mcp.mcpserver.resources.addCpgResources
+import de.fraunhofer.aisec.cpg.mcp.mcpserver.tools.addAnalyzeCode
+import de.fraunhofer.aisec.cpg.mcp.mcpserver.tools.addApplyOverlay
+import de.fraunhofer.aisec.cpg.mcp.mcpserver.tools.addCheckDataflow
+import de.fraunhofer.aisec.cpg.mcp.mcpserver.tools.addGetNode
+import de.fraunhofer.aisec.cpg.mcp.mcpserver.tools.addGetStatus
+import de.fraunhofer.aisec.cpg.mcp.mcpserver.tools.addQueryGraph
 import de.fraunhofer.aisec.cpg.mcp.mcpserver.tools.addRunPass
-import de.fraunhofer.aisec.cpg.mcp.mcpserver.tools.getAllArgs
-import de.fraunhofer.aisec.cpg.mcp.mcpserver.tools.getArgByIndexOrName
-import de.fraunhofer.aisec.cpg.mcp.mcpserver.tools.listAvailableConcepts
-import de.fraunhofer.aisec.cpg.mcp.mcpserver.tools.listAvailableOperations
-import de.fraunhofer.aisec.cpg.mcp.mcpserver.tools.listCalls
-import de.fraunhofer.aisec.cpg.mcp.mcpserver.tools.listCallsTo
-import de.fraunhofer.aisec.cpg.mcp.mcpserver.tools.listConceptsAndOperations
-import de.fraunhofer.aisec.cpg.mcp.mcpserver.tools.listFunctions
-import de.fraunhofer.aisec.cpg.mcp.mcpserver.tools.listRecords
+import de.fraunhofer.aisec.cpg.mcp.mcpserver.tools.addSuggestOverlays
 import io.modelcontextprotocol.kotlin.sdk.Implementation
 import io.modelcontextprotocol.kotlin.sdk.ServerCapabilities
 import io.modelcontextprotocol.kotlin.sdk.server.Server
@@ -48,22 +42,16 @@ import io.modelcontextprotocol.kotlin.sdk.server.ServerOptions
 
 fun configureServer(
     configure: Server.() -> Server = {
-        this.addCpgTranslate()
-        this.addListPasses()
+        this.addCpgResources()
+        this.addCpgPrompts()
+        this.addAnalyzeCode()
+        this.addGetStatus()
         this.addRunPass()
-        this.addCpgAnalyzeTool()
-        this.addCpgLlmAnalyzeTool()
-        this.addCpgApplyConceptsTool()
-        this.addCpgDataflowTool()
-        this.listFunctions()
-        this.listRecords()
-        this.listCalls()
-        this.listCallsTo()
-        this.listAvailableConcepts()
-        this.listAvailableOperations()
-        this.getAllArgs()
-        this.getArgByIndexOrName()
-        this.listConceptsAndOperations()
+        this.addQueryGraph()
+        this.addGetNode()
+        this.addApplyOverlay()
+        this.addSuggestOverlays()
+        this.addCheckDataflow()
         this
     }
 ): Server {

@@ -28,20 +28,11 @@ package de.fraunhofer.aisec.cpg.mcp.mcpserver.tools.utils
 import kotlinx.serialization.Serializable
 
 @Serializable
-data class CpgAnalyzePayload(val content: String? = null, val extension: String? = null)
-
-@Serializable data class CpgNamePayload(val name: String)
-
-@Serializable data class CpgIdPayload(val id: String)
-
-@Serializable
-data class CpgCallArgumentByNameOrIndexPayload(
-    val nodeId: String,
-    val argumentName: String? = null,
-    val index: Int? = null,
+data class CpgAnalyzePayload(
+    val content: String? = null,
+    val extension: String? = null,
+    val runPasses: Boolean? = null,
 )
-
-@Serializable data class CpgApplyConceptsPayload(val assignments: List<ConceptAssignment>)
 
 @Serializable
 data class CpgRunPassPayload(
@@ -51,23 +42,7 @@ data class CpgRunPassPayload(
     val nodeId: String,
 )
 
-@Serializable
-data class ConceptAssignment(
-    val nodeId: String,
-    /* FQN of concept or operation class */
-    val overlay: String,
-    /* "Concept" or "Operation" from LLM response */
-    val overlayType: String? = null,
-    /* NodeId of concept this operation references */
-    val conceptNodeId: String? = null,
-    val arguments: Map<String, String>? = null,
-    val reasoning: String? = null,
-    val securityImpact: String? = null,
-)
-
 @Serializable data class CpgDataflowPayload(val from: String, val to: String)
-
-@Serializable data class CpgLlmAnalyzePayload(val description: String? = null)
 
 /**
  * This class represents information about a pass, including its fully qualified name (FQN), a
@@ -94,3 +69,29 @@ data class PassInfo(
      */
     val softDependencies: List<String>,
 )
+
+@Serializable
+data class QueryGraphPayload(
+    val kind: String,
+    /** "functions", "records", "calls", "variables", "overlays" */
+    val name: String? = null,
+    /** optional name filter (substring match) */
+    val limit: Int = 50,
+    /** pagination */
+    val offset: Int = 0,
+)
+
+@Serializable data class GetNodePayload(val id: String)
+
+/** for apply_overlay (flat, one-at-a-time, replaces the nested assignments array */
+@Serializable
+data class ApplyOverlayPayload(
+    val nodeId: String,
+    val overlayFqn: String,
+    val overlayType: String,
+    /** required only for Operations */
+    val conceptNodeId: String? = null,
+)
+
+/** for suggest_overlays (replaced CpgLLmAnalyzePayload) */
+@Serializable data class SuggestOverlaysPayload(val description: String? = null)

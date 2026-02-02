@@ -25,93 +25,52 @@
  */
 @file:Suppress("UNCHECKED_CAST")
 
-/*
- * Copyright (c) 2025, Fraunhofer AISEC. All rights reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- *                    $$$$$$\  $$$$$$$\   $$$$$$\
- *                   $$  __$$\ $$  __$$\ $$  __$$\
- *                   $$ /  \__|$$ |  $$ |$$ /  \__|
- *                   $$ |      $$$$$$$  |$$ |$$$$\
- *                   $$ |      $$  ____/ $$ |\_$$ |
- *                   $$ |  $$\ $$ |      $$ |  $$ |
- *                   \$$$$$   |$$ |      \$$$$$   |
- *                    \______/ \__|       \______/
- *
- */
 package de.fraunhofer.aisec.cpg.mcp.mcpserver.tools
 
 import de.fraunhofer.aisec.cpg.*
 import de.fraunhofer.aisec.cpg.graph.Component
 import de.fraunhofer.aisec.cpg.graph.EOGStarterHolder
 import de.fraunhofer.aisec.cpg.graph.Node
+import de.fraunhofer.aisec.cpg.graph.OverlayNode
 import de.fraunhofer.aisec.cpg.graph.allChildrenWithOverlays
 import de.fraunhofer.aisec.cpg.graph.calls
 import de.fraunhofer.aisec.cpg.graph.declarations.TranslationUnitDeclaration
 import de.fraunhofer.aisec.cpg.graph.firstParentOrNull
 import de.fraunhofer.aisec.cpg.graph.functions
 import de.fraunhofer.aisec.cpg.graph.nodes
+import de.fraunhofer.aisec.cpg.graph.records
 import de.fraunhofer.aisec.cpg.graph.variables
-import de.fraunhofer.aisec.cpg.mcp.mcpserver.cpgDescription
 import de.fraunhofer.aisec.cpg.mcp.mcpserver.tools.utils.CpgAnalysisResult
 import de.fraunhofer.aisec.cpg.mcp.mcpserver.tools.utils.CpgAnalyzePayload
 import de.fraunhofer.aisec.cpg.mcp.mcpserver.tools.utils.CpgRunPassPayload
-import de.fraunhofer.aisec.cpg.mcp.mcpserver.tools.utils.PassInfo
+import de.fraunhofer.aisec.cpg.mcp.mcpserver.tools.utils.StatusInfo
 import de.fraunhofer.aisec.cpg.mcp.mcpserver.tools.utils.runOnCpg
-import de.fraunhofer.aisec.cpg.mcp.mcpserver.tools.utils.toNodeInfo
 import de.fraunhofer.aisec.cpg.mcp.mcpserver.tools.utils.toObject
 import de.fraunhofer.aisec.cpg.mcp.setupTranslationConfiguration
-import de.fraunhofer.aisec.cpg.passes.BasicBlockCollectorPass
 import de.fraunhofer.aisec.cpg.passes.ComponentPass
-import de.fraunhofer.aisec.cpg.passes.ControlDependenceGraphPass
-import de.fraunhofer.aisec.cpg.passes.ControlFlowSensitiveDFGPass
-import de.fraunhofer.aisec.cpg.passes.DFGPass
-import de.fraunhofer.aisec.cpg.passes.DynamicInvokeResolver
 import de.fraunhofer.aisec.cpg.passes.EOGStarterPass
-import de.fraunhofer.aisec.cpg.passes.EvaluationOrderGraphPass
-import de.fraunhofer.aisec.cpg.passes.ImportResolver
 import de.fraunhofer.aisec.cpg.passes.Pass
-import de.fraunhofer.aisec.cpg.passes.PrepareSerialization
-import de.fraunhofer.aisec.cpg.passes.ProgramDependenceGraphPass
-import de.fraunhofer.aisec.cpg.passes.ResolveCallExpressionAmbiguityPass
-import de.fraunhofer.aisec.cpg.passes.ResolveMemberExpressionAmbiguityPass
-import de.fraunhofer.aisec.cpg.passes.SccPass
-import de.fraunhofer.aisec.cpg.passes.SymbolResolver
 import de.fraunhofer.aisec.cpg.passes.TranslationResultPass
 import de.fraunhofer.aisec.cpg.passes.TranslationUnitPass
-import de.fraunhofer.aisec.cpg.passes.TypeHierarchyResolver
-import de.fraunhofer.aisec.cpg.passes.TypeResolver
-import de.fraunhofer.aisec.cpg.passes.briefDescription
 import de.fraunhofer.aisec.cpg.passes.configuration.PassOrderingHelper
 import de.fraunhofer.aisec.cpg.passes.configuration.ReplacePass
 import de.fraunhofer.aisec.cpg.passes.consumeTargets
-import de.fraunhofer.aisec.cpg.passes.hardDependencies
-import de.fraunhofer.aisec.cpg.passes.softDependencies
 import io.modelcontextprotocol.kotlin.sdk.server.Server
 import io.modelcontextprotocol.kotlin.sdk.types.CallToolRequest
 import io.modelcontextprotocol.kotlin.sdk.types.CallToolResult
 import io.modelcontextprotocol.kotlin.sdk.types.TextContent
 import io.modelcontextprotocol.kotlin.sdk.types.ToolSchema
 import java.io.File
+import java.nio.file.Files
 import java.util.IdentityHashMap
-import kotlin.String
 import kotlin.reflect.KClass
 import kotlin.reflect.full.findAnnotations
 import kotlin.reflect.full.primaryConstructor
 import kotlin.reflect.typeOf
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
 
@@ -119,46 +78,44 @@ var globalAnalysisResult: TranslationResult? = null
 
 var ctx: TranslationContext? = null
 
-val toolDescription =
-    """
-        Analyze source code using CPG (Code Property Graph).
-        
-        $cpgDescription
-        
-        This tool parses source code and creates a comprehensive graph representation 
-        containing all nodes, functions, variables, and call expressions.
-        
-        Example usage:
-        - "Analyze this code: print('hello')"
-        - "Analyze this uploaded file"
-    """
-        .trimIndent()
+/** Keeps track of which passes have been run on which nodes to avoid redundant executions. */
+val nodeToPass = IdentityHashMap<Node, MutableSet<KClass<out Pass<*>>>>()
 
-val inputSchema =
-    ToolSchema(
-        properties =
-            buildJsonObject {
-                putJsonObject("content") {
-                    put("type", "string")
-                    put("description", "Source code content to analyze")
-                }
-                putJsonObject("extension") {
-                    put("type", "string")
-                    put(
-                        "description",
-                        "File extension for language detection (e.g., 'py', 'java', 'cpp')",
-                    )
-                }
-            },
-        required = listOf(),
-    )
+fun Server.addAnalyzeCode() {
+    val description =
+        "Parse source code and build a Code Property Graph. Returns a summary of the analysis."
+    val inputSchema =
+        ToolSchema(
+            properties =
+                buildJsonObject {
+                    putJsonObject("content") {
+                        put("type", "string")
+                        put("description", "Source code to analyze")
+                    }
+                    putJsonObject("extension") {
+                        put("type", "string")
+                        put("description", "File extension, e.g. 'py', 'java', 'cpp'")
+                    }
+                    putJsonObject("runPasses") {
+                        put("type", "boolean")
+                        put("description", "Run all analysis passes (default: true)")
+                    }
+                },
+            required = listOf("content", "extension"),
+        )
 
-fun Server.addCpgAnalyzeTool() {
-    this.addTool(name = "cpg_analyze", description = toolDescription, inputSchema = inputSchema) {
+    this.addTool(name = "analyze_code", description = description, inputSchema = inputSchema) {
         request ->
         try {
-            val payload = request.arguments?.toObject<CpgAnalyzePayload>()
-            val analysisResult = runCpgAnalyze(payload, runPasses = true, cleanup = true)
+            val payload =
+                request.arguments?.toObject<CpgAnalyzePayload>()
+                    ?: return@addTool CallToolResult(
+                        content =
+                            listOf(TextContent("Invalid or missing payload for analyze_code tool."))
+                    )
+            val runPasses =
+                request.arguments?.get("runPasses")?.jsonPrimitive?.booleanOrNull ?: true
+            val analysisResult = runCpgAnalyze(payload, runPasses = runPasses, cleanup = true)
             val jsonResult = Json.encodeToString(analysisResult)
             CallToolResult(content = listOf(TextContent(jsonResult)))
         } catch (e: Exception) {
@@ -166,6 +123,52 @@ fun Server.addCpgAnalyzeTool() {
                 content = listOf(TextContent("Error: ${e.message ?: e::class.simpleName}"))
             )
         }
+    }
+}
+
+fun Server.addGetStatus() {
+    this.addTool(
+        name = "get_status",
+        description = "Show current analysis state: what's loaded, passes run, overlays applied.",
+    ) { _ ->
+        val result = globalAnalysisResult
+        if (result == null) {
+            val statusInfo =
+                StatusInfo(
+                    hasAnalysis = false,
+                    totalNodes = 0,
+                    functions = 0,
+                    records = 0,
+                    calls = 0,
+                    variables = 0,
+                    overlaysApplied = 0,
+                    passesRun = emptyList(),
+                )
+            return@addTool CallToolResult(
+                content = listOf(TextContent(Json.encodeToString(statusInfo)))
+            )
+        }
+
+        val passesRun =
+            nodeToPass.values
+                .flatten()
+                .mapNotNull { it.qualifiedName ?: it.simpleName }
+                .distinct()
+                .sorted()
+
+        val statusInfo =
+            StatusInfo(
+                hasAnalysis = true,
+                totalNodes = result.nodes.size,
+                functions = result.functions.size,
+                records = result.records.size,
+                calls = result.calls.size,
+                variables = result.variables.size,
+                overlaysApplied = result.allChildrenWithOverlays<OverlayNode>().size,
+                passesRun = passesRun,
+            )
+
+        CallToolResult(content = listOf(TextContent(Json.encodeToString(statusInfo))))
     }
 }
 
@@ -181,7 +184,7 @@ fun runCpgAnalyze(
     runPasses: Boolean,
     cleanup: Boolean,
 ): CpgAnalysisResult {
-    val file =
+    val (file, topLevel) =
         when {
             payload?.content != null -> {
                 val extension =
@@ -194,10 +197,19 @@ fun runCpgAnalyze(
                         )
                     }
 
-                val tempFile = File.createTempFile("cpg_analysis", extension)
-                tempFile.writeText(payload.content)
-                tempFile.deleteOnExit()
-                tempFile
+                if (extension == ".java") {
+                    val tempDir = Files.createTempDirectory("cpg_analysis").toFile()
+                    val tempFile = File(tempDir, "CpgAnalysis$extension")
+                    tempFile.writeText(payload.content)
+                    tempFile.deleteOnExit()
+                    tempDir.deleteOnExit()
+                    tempFile to tempDir
+                } else {
+                    val tempFile = File.createTempFile("cpg_analysis", extension)
+                    tempFile.writeText(payload.content)
+                    tempFile.deleteOnExit()
+                    tempFile to tempFile
+                }
             }
 
             else -> throw IllegalArgumentException("Must provide content")
@@ -205,7 +217,7 @@ fun runCpgAnalyze(
 
     val config =
         setupTranslationConfiguration(
-            topLevel = file,
+            topLevel = topLevel,
             files = listOf(file.absolutePath),
             includePaths = emptyList(),
             runPasses = runPasses,
@@ -230,173 +242,25 @@ fun runCpgAnalyze(
 
     // Store the result globally
     globalAnalysisResult = result
+    nodeToPass.clear()
 
-    val allNodes = result.nodes
-    val functions = result.functions
-    val variables = result.variables
-    val callExpressions = result.calls
-
-    val nodeInfos = allNodes.map { node: Node -> node.toNodeInfo() }
+    val topLevelDeclarations =
+        result.components
+            .flatMap { it.translationUnits }
+            .flatMap { it.declarations }
+            .map { it.name.toString() }
+            .filter { it.isNotBlank() }
+            .distinct()
 
     return CpgAnalysisResult(
-        totalNodes = allNodes.size,
-        functions = functions.size,
-        variables = variables.size,
-        callExpressions = callExpressions.size,
-        nodes = nodeInfos,
+        totalNodes = result.nodes.size,
+        functions = result.functions.size,
+        variables = result.variables.size,
+        callExpressions = result.calls.size,
+        records = result.records.size,
+        topLevelDeclarations = topLevelDeclarations,
     )
 }
-
-/**
- * From here, we add a simplified version of the CPG analyze tool that only translates the source
- * code into the CPG AST without running any additional passes. These passes can be run in
- * subsequent tools.
- */
-
-/** Translate source code into the AST of the CPG (Code Property Graph). */
-fun Server.addCpgTranslate() {
-    this.addTool(
-        name = "cpg_translate",
-        description =
-            """
-        Translates the source code into the AST of the CPG (Code Property Graph). This serves as a basis for subsequent passes and analyses.
-        
-        $cpgDescription
-        
-        This tool parses source code and creates a comprehensive graph representation 
-        containing all nodes, functions, variables, and call expressions.
-        
-        Example usage:
-        - "Analyze this code: print('hello')"
-        - "Analyze this uploaded file"
-    """
-                .trimIndent(),
-        inputSchema = inputSchema,
-    ) { request ->
-        try {
-            val payload = request.arguments?.toObject<CpgAnalyzePayload>()
-            val analysisResult = runCpgAnalyze(payload, runPasses = false, cleanup = false)
-            val jsonResult = Json.encodeToString(analysisResult)
-            CallToolResult(content = listOf(TextContent(jsonResult)))
-        } catch (e: Exception) {
-            CallToolResult(
-                content = listOf(TextContent("Error: ${e.message ?: e::class.simpleName}"))
-            )
-        }
-    }
-}
-
-/** Provide a list of all passes that can be applied to the CPG. */
-fun Server.addListPasses() {
-    this.addTool(
-        name = "cpg_list_passes",
-        description =
-            """Provides a list of all available passes that can be applied to the CPG. It also lists dependencies and what kind of node the pass expects."""
-                .trimIndent(),
-        inputSchema = ToolSchema(properties = buildJsonObject {}, required = listOf()),
-    ) { _ ->
-        try {
-            fun passToInfo(pass: KClass<out Pass<*>>): PassInfo {
-                return PassInfo(
-                    fqn = pass.qualifiedName.toString(),
-                    description = pass.briefDescription,
-                    requiredNodeType =
-                        pass.supertypes.fold("") { old, it ->
-                            old +
-                                when (it.classifier) {
-                                    EOGStarterPass::class ->
-                                        EOGStarterHolder::class.qualifiedName.toString()
-                                    TranslationUnitPass::class ->
-                                        TranslationUnitDeclaration::class.qualifiedName.toString()
-                                    TranslationResultPass::class ->
-                                        TranslationResult::class.qualifiedName.toString()
-                                    ComponentPass::class ->
-                                        Component::class.qualifiedName.toString()
-                                    else -> ""
-                                }
-                        },
-                    dependsOn = pass.hardDependencies.map { it.qualifiedName.toString() },
-                    softDependencies = pass.softDependencies.map { it.qualifiedName.toString() },
-                )
-            }
-
-            fun optionalPassToInfo(passName: String): PassInfo? {
-                return try {
-                    (Class.forName(passName).kotlin as? KClass<out Pass<*>>)?.let { passToInfo(it) }
-                } catch (_: ClassNotFoundException) {
-                    null
-                }
-            }
-
-            val passesList =
-                mutableListOf(
-                    passToInfo(PrepareSerialization::class),
-                    passToInfo(DynamicInvokeResolver::class),
-                    passToInfo(ImportResolver::class),
-                    passToInfo(SymbolResolver::class),
-                    passToInfo(EvaluationOrderGraphPass::class),
-                    passToInfo(DFGPass::class),
-                    passToInfo(ControlFlowSensitiveDFGPass::class),
-                    passToInfo(ControlDependenceGraphPass::class),
-                    passToInfo(ProgramDependenceGraphPass::class),
-                    passToInfo(TypeResolver::class),
-                    passToInfo(TypeHierarchyResolver::class),
-                    passToInfo(ResolveMemberExpressionAmbiguityPass::class),
-                    passToInfo(ResolveCallExpressionAmbiguityPass::class),
-                    passToInfo(SccPass::class),
-                    passToInfo(BasicBlockCollectorPass::class),
-                )
-
-            // Python-specific passes are added only if Python language is available
-            optionalPassToInfo(
-                    "de.fraunhofer.aisec.cpg.passes.concepts.file.python.PythonFileConceptPass"
-                )
-                ?.let { passesList += it }
-            optionalPassToInfo("de.fraunhofer.aisec.cpg.passes.PythonAddDeclarationsPass")?.let {
-                passesList += it
-            }
-
-            // C-specific pass is added only if C language is available
-            optionalPassToInfo("de.fraunhofer.aisec.cpg.passes.CXXExtraPass")?.let {
-                passesList += it
-            }
-
-            // LLVM-specific pass is added only if LLVM language is available
-            optionalPassToInfo("de.fraunhofer.aisec.cpg.passes.CompressLLVMPass")?.let {
-                passesList += it
-            }
-
-            // Java-specific pass is added only if Java language is available
-            optionalPassToInfo("de.fraunhofer.aisec.cpg.passes.JavaExternalTypeHierarchyResolver")
-                ?.let { passesList += it }
-            optionalPassToInfo("de.fraunhofer.aisec.cpg.passes.JavaExtraPass")?.let {
-                passesList += it
-            }
-            optionalPassToInfo("de.fraunhofer.aisec.cpg.passes.JavaImportResolver")?.let {
-                passesList += it
-            }
-
-            // Go-specific pass is added only if Go language is available
-            optionalPassToInfo("de.fraunhofer.aisec.cpg.passes.GoExtraPass")?.let {
-                passesList += it
-            }
-            optionalPassToInfo("de.fraunhofer.aisec.cpg.passes.GoEvaluationOrderGraphPass")?.let {
-                passesList += it
-            }
-
-            CallToolResult(
-                content = passesList.map { passInfo -> TextContent(Json.encodeToString(passInfo)) }
-            )
-        } catch (e: Exception) {
-            CallToolResult(
-                content = listOf(TextContent("Error: ${e.message ?: e::class.simpleName}"))
-            )
-        }
-    }
-}
-
-/** Keeps track of which passes have been run on which nodes to avoid redundant executions. */
-val nodeToPass = IdentityHashMap<Node, MutableSet<KClass<out Pass<*>>>>()
 
 /**
  * Registers a tool which runs a [Pass] on a specified [Node] or the closest suitable node(s) for
@@ -405,10 +269,9 @@ val nodeToPass = IdentityHashMap<Node, MutableSet<KClass<out Pass<*>>>>()
  */
 fun Server.addRunPass() {
     this.addTool(
-        name = "cpg_run_pass",
+        name = "run_pass",
         description =
-            """Runs a given Pass on a specified Node. If the given node does not meet the type of node the pass operates on, the tool looks for the next matching node. It also triggers passes that the specified pass depends on, if they have not been run yet on the given node."""
-                .trimIndent(),
+            "Runs a given pass on a specified node, resolving pass dependencies automatically.",
         inputSchema =
             ToolSchema(
                 properties =
@@ -419,7 +282,7 @@ fun Server.addRunPass() {
                         }
                         putJsonObject("nodeId") {
                             put("type", "string")
-                            put("description", "The ID of the node on which the pass should be ran")
+                            put("description", "The ID of the node on which the pass should run")
                         }
                     },
                 required = listOf("passName", "nodeId"),
@@ -463,9 +326,8 @@ fun Server.addRunPass() {
                     orderingHelper.order().flatten()
                 } catch (_: ConfigurationException) {
                     // There was an exception while ordering the passes (e.g., cyclic dependency).
-                    // We just add the requested pass and hope that the AI knows what it is doing.
-                    // Note: We do not log this error because it has led to problems with the MCP
-                    // server via stdio in the past.
+                    // We just add the requested pass and hope that the user knows what they are
+                    // doing.
                     listOf(passClass)
                 }
 
@@ -495,7 +357,7 @@ fun Server.addRunPass() {
                                 content =
                                     listOf(
                                         TextContent(
-                                            "Cannot run run_pass without translation context."
+                                            "Cannot run run_pass without translation context. Run analyze_code first."
                                         )
                                     )
                             )

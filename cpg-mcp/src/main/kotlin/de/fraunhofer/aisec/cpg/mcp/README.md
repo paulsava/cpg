@@ -2,22 +2,26 @@
 
 ## Available Tools
 
-### Analysis Tools
-- **`cpg_analyze`** : Parse code files to build the CPG
-- **`cpg_llm_analyze`** : Generate prompt asking LLM to suggest concepts/operations
-- **`cpg_apply_concepts`** : Apply the suggested concept/operations to specific nodes
-- **`cpg_dataflow`** : Perform dataflow analysis
+### Core Analysis
+- **`analyze_code`**: Parse code and build a Code Property Graph (CPG)
+- **`get_status`**: Show current analysis state, passes run, overlays applied
+- **`run_pass`**: Run a specific analysis pass on a node
+- **`check_dataflow`**: Perform dataflow analysis between concepts
 
-### Query and Listing Tools
-- **`list_functions`** : List all function declarations
-- **`list_records`** : List all record declarations (classes, structs, etc.)
-- **`list_calls`** : List all call expressions
-- **`list_calls_to`** : List all calls to a specific function or method
-- **`list_available_concepts`** : List all available concepts
-- **`list_available_operations`** : List all available operations
-- **`list_concepts_and_operations`** : List all applied concepts and operations on nodes
-- **`get_all_args`** : Get all arguments passed to function calls
-- **`get_arg_by_index_or_name`** : Get specific argument by index or parameter name
+### Query and Tagging
+- **`query_graph`**: Query functions, records, calls, variables, or overlays
+- **`get_node`**: Get full details for a node by ID
+- **`suggest_overlays`**: Provide overlay suggestions and candidate nodes
+- **`apply_overlay`**: Apply a single concept or operation to a node
+
+## Resources
+- **`cpg://docs/graph-model`**: CPG graph model documentation
+- **`cpg://docs/available-concepts`**: All available concept classes
+- **`cpg://docs/available-operations`**: All available operation classes
+- **`cpg://docs/passes`**: Pass catalog with dependencies and required node types
+
+## Prompts
+- **`security-analysis`**: Security analysis workflow for applying overlays
 
 ## Setup
 
@@ -55,67 +59,76 @@ The current implementation uses stdio since Claude Desktop only supports this tr
 
 ## Usage
 
-### Step 1: Parse Your Code (`cpg_analyze`)
-
-First, parse the source code to build the Code Property Graph.
-You can either provide and upload a file or paste code directly.
-
-**Example:**
+### Step 1: Analyze Code (`analyze_code`)
 
 ```json
 {
-  "tool": "cpg_analyze",
+  "tool": "analyze_code",
   "arguments": {
     "content": "def read_user_data():\n    with open('/etc/passwd') as f:\n        return f.read()",
-    "fileName": "security_check.py"
+    "extension": "py",
+    "runPasses": true
   }
 }
 ```
 
-**Response:**
+**Response (summary):**
 
 ```json
 {
-  "fileName": "security_check.py",
   "totalNodes": 15,
   "functions": 3,
   "variables": 5,
   "callExpressions": 2,
-  "nodes": [
-    {
-      "nodeId": "12345",
-      "name": "open",
-      "code": "open('/etc/passwd')",
-      "fileName": "security_check.py",
-      "startLine": 2,
-      "endLine": 2,
-      "startColumn": 10,
-      "endColumn": 26
-    }
-  ]
+  "records": 0,
+  "topLevelDeclarations": ["read_user_data"]
 }
 ```
 
-### Step 2: Generate Prompt (`cpg_llm_analyze`)
-
-This tool creates a prompt that asks the LLM to act as a software engineer with expertise in software security.
-The LLM is provided with background information of the CPG and with examples of how to classify nodes into concepts and
-operations.
-Furthermore, it obtains a list of all existing concepts/operations and a list of all nodes in the current CPG analysis.
-
-**LLM Response Format Expected:**
+### Step 2: Query the Graph (`query_graph`)
 
 ```json
 {
-  "overlaySuggestions": [
-    {
-      "nodeId": "1234",
-      "overlay": "fully.qualified.class.Name",
-      "overlayType": "Concept | Operation",
-      "conceptNodeId": "string (REQUIRED for operations)",
-      "reasoning": "Security reasoning for this classification",
-      "securityImpact": "Potential security implications"
-    }
-  ]
+  "tool": "query_graph",
+  "arguments": {
+    "kind": "functions",
+    "limit": 10
+  }
+}
+```
+
+### Step 3: Suggest Overlays (`suggest_overlays`)
+
+```json
+{
+  "tool": "suggest_overlays",
+  "arguments": {
+    "description": "authentication"
+  }
+}
+```
+
+### Step 4: Apply an Overlay (`apply_overlay`)
+
+```json
+{
+  "tool": "apply_overlay",
+  "arguments": {
+    "nodeId": "<node-id>",
+    "overlayFqn": "de.fraunhofer.aisec.cpg.graph.concepts.auth.Credential",
+    "overlayType": "Concept"
+  }
+}
+```
+
+### Step 5: Check Dataflow (`check_dataflow`)
+
+```json
+{
+  "tool": "check_dataflow",
+  "arguments": {
+    "from": "Credential",
+    "to": "HttpRequest"
+  }
 }
 ```

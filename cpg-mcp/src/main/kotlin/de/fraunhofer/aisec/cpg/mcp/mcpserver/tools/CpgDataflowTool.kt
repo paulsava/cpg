@@ -49,7 +49,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
 
-fun Server.addCpgDataflowTool() {
+fun Server.addCheckDataflow() {
     val toolDescription =
         """
         Analyze the data flow of the nodes.
@@ -57,7 +57,7 @@ fun Server.addCpgDataflowTool() {
         This tool performs data flow analysis to find paths between source 
         and target concepts that have been applied to nodes in the graph.
         
-        You must first apply concepts to nodes using cpg_apply_concepts 
+        You must first apply concepts to nodes using apply_overlay 
         before running data flow analysis.
         
         Example usage:
@@ -92,14 +92,19 @@ fun Server.addCpgDataflowTool() {
             required = listOf("from", "to"),
         )
 
-    this.addTool(name = "cpg_dataflow", description = toolDescription, inputSchema = inputSchema) {
-        request ->
+    this.addTool(
+        name = "check_dataflow",
+        description = toolDescription,
+        inputSchema = inputSchema,
+    ) { request ->
         request.runOnCpg { result: TranslationResult, request: CallToolRequest ->
             val payload =
                 request.arguments?.toObject<CpgDataflowPayload>()
                     ?: return@runOnCpg CallToolResult(
                         content =
-                            listOf(TextContent("Invalid or missing payload for cpg_dataflow tool."))
+                            listOf(
+                                TextContent("Invalid or missing payload for check_dataflow tool.")
+                            )
                     )
 
             val allOverlayNodes = result.allChildrenWithOverlays<OverlayNode>()
@@ -110,9 +115,7 @@ fun Server.addCpgDataflowTool() {
                 return@runOnCpg CallToolResult(
                     content =
                         listOf(
-                            TextContent(
-                                "No concept found. Apply concepts first using cpg_apply_concepts."
-                            )
+                            TextContent("No overlays found. Use apply_overlay to tag nodes first.")
                         )
                 )
             }
